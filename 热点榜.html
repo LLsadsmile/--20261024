@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>技能互换 · 热点榜</title>
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body data-page="hot">
+<div class="app">
+  <!-- 顶部栏 -->
+  <div class="topbar">
+    <div class="logo"><span class="mark">⇄</span><span>技能互换</span></div>
+    <div class="pc-nav" id="pcNav"></div>
+    <div id="topRight"></div>
+  </div>
+
+  <!-- 内容区：热点排行 -->
+  <div class="content">
+    <section class="view active">
+      <div class="hotpage-head">
+        <a class="mini-btn" href="首页.html" style="margin-bottom:10px;">‹ 返回广场</a>
+        <h2>🔥 热点推送</h2>
+        <p>全站帖子按热度排行 · 三个榜单任你逛</p>
+      </div>
+
+      <div class="rank-tabs" id="rankTabs">
+        <button data-rank="all" class="on">🏆 总榜</button>
+        <button data-rank="learn">📚 学习榜</button>
+        <button data-rank="teach">💡 教课榜</button>
+      </div>
+      <div id="rankList"></div>
+    </section>
+  </div>
+
+  <!-- 底部导航（移动版） -->
+  <div class="tabbar" id="tabbar"></div>
+</div>
+
+<script src="assets/app.js"></script>
+<script>
+/* ========== 热点榜逻辑：总榜 / 学习榜 / 教课榜 ========== */
+let rankMode="all";
+const MEDALS=["🥇","🥈","🥉"];
+
+function renderRank(){
+  let list=posts.slice().sort((a,b)=>b.likes-a.likes);
+  if(rankMode==="learn")list=list.filter(p=>p.type==="learn");
+  if(rankMode==="teach")list=list.filter(p=>p.type==="teach");
+  if(!list.length){$("rankList").innerHTML=`<div class="empty"><div class="ico">🗂️</div>该榜单暂无帖子，快去发布第一条吧</div>`;return;}
+  $("rankList").innerHTML=list.map((p,i)=>`
+    <div class="rank-item" data-open="${p.id}">
+      <div class="rank-num">${i<3?MEDALS[i]:(i+1)}</div>
+      <div class="rank-main">
+        <div class="rank-title"><span class="badge ${p.type}" style="font-size:12px;padding:3px 9px;">${p.type==="learn"?"📚 我想学":"💡 我能教"}</span>${esc(p.title)}</div>
+        <div class="rank-meta">${esc(p.author)} · #${esc(p.cat)} · ${esc(p.place)} · ${esc(p.time)}</div>
+      </div>
+      <div class="rank-heat">❤️ ${p.likes}</div>
+    </div>`).join("");
+}
+
+$("rankTabs").addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;
+  rankMode=b.dataset.rank;
+  [...$("rankTabs").children].forEach(x=>x.classList.toggle("on",x===b));
+  renderRank();
+});
+
+renderRank();
+</script>
+</body>
+</html>

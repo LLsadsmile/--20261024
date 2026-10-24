@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>技能互换 · 发布</title>
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body data-page="publish">
+<div class="app">
+  <!-- 顶部栏 -->
+  <div class="topbar">
+    <div class="logo"><span class="mark">⇄</span><span>技能互换</span></div>
+    <div class="pc-nav" id="pcNav"></div>
+    <div id="topRight"></div>
+  </div>
+
+  <!-- 内容区：发布 -->
+  <div class="content">
+    <section class="view active">
+      <div id="publishGate"></div>
+      <div id="publishForm" style="display:none;">
+        <div class="form-card">
+          <div class="type-toggle" id="typeToggle">
+            <button data-type="learn" class="on">📚 我想学</button>
+            <button data-type="teach" class="">💡 我能教</button>
+          </div>
+
+          <div class="field">
+            <label id="titleLabel">我想学什么？</label>
+            <input id="fTitle" placeholder="例如：零基础学吉他" />
+          </div>
+
+          <div class="field">
+            <label>选择分类</label>
+            <div class="cat-grid" id="catGrid"></div>
+          </div>
+
+          <div class="field">
+            <label id="descLabel">详细描述你的需求</label>
+            <textarea id="fDesc" placeholder="例如：每周末可线下，想先学会弹唱几首歌，愿意用英语陪练作为交换…"></textarea>
+          </div>
+
+          <div class="row2">
+            <div class="field">
+              <label>方式</label>
+              <select id="fMode">
+                <option>线上</option>
+                <option>线下</option>
+                <option>线上/线下均可</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>地点</label>
+              <input id="fPlace" placeholder="如：上海·徐汇" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label id="rewardLabel">我能提供什么作为交换</label>
+            <input id="fReward" placeholder="例如：免费教英语 / 请喝咖啡" />
+          </div>
+
+          <div class="form-actions">
+            <button class="btn btn-ghost btn-block" id="saveDraft">💾 存草稿</button>
+            <button class="btn btn-primary btn-block" id="doPublish">🚀 发布</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- 底部导航（移动版） -->
+  <div class="tabbar" id="tabbar"></div>
+</div>
+
+<script src="assets/app.js"></script>
+<script>
+/* ========== 发布页逻辑 ========== */
+function renderPublish(){
+  const gate=$("publishGate"), form=$("publishForm");
+  if(!state.user){
+    gate.style.display="block";form.style.display="none";
+    gate.innerHTML=`<div class="guest-hint">🔒 游客模式：登录后即可发布「我想学 / 我能教」需求帖</div>
+      <div class="form-card" style="text-align:center;padding:30px;">
+        <div style="font-size:46px;margin-bottom:10px;">✍️</div>
+        <div style="font-weight:800;font-size:18px;margin-bottom:6px;">发布你的技能帖</div>
+        <div style="color:var(--text-2);margin-bottom:18px;">分享你能教的，或说出你想学的</div>
+        <button class="btn btn-primary btn-block" id="pubLogin">登录后发布</button>
+      </div>`;
+    $("pubLogin").onclick=()=>openLogin();
+    return;
+  }
+  gate.style.display="none";form.style.display="block";
+  $("catGrid").innerHTML=CATS.map(c=>`<div class="cat-opt ${c===state.publishCat?"on":""}" data-cat="${c}">${c}</div>`).join("");
+  const isLearn=state.publishType==="learn";
+  $("titleLabel").textContent=isLearn?"我想学什么？":"我能教什么？";
+  $("descLabel").textContent=isLearn?"详细描述你的学习需求":"详细介绍你能提供的教学";
+  $("rewardLabel").textContent=isLearn?"我能提供什么作为交换":"我希望得到什么回报";
+  $("fTitle").placeholder=isLearn?"例如：零基础学吉他":"例如：10年经验教Python";
+}
+
+$("typeToggle").addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;
+  state.publishType=b.dataset.type;
+  [...$("typeToggle").children].forEach(x=>{x.classList.toggle("on",x===b);x.classList.toggle("t-teach",x.dataset.type==="teach"&&x===b);});
+  renderPublish();
+});
+$("catGrid").addEventListener("click",e=>{
+  const c=e.target.closest(".cat-opt");if(!c)return;
+  state.publishCat=c.dataset.cat;renderPublish();
+});
+function readForm(){
+  return {
+    type:state.publishType,
+    cat:state.publishCat,
+    title:$("fTitle").value.trim(),
+    desc:$("fDesc").value.trim(),
+    mode:$("fMode").value,
+    place:$("fPlace").value.trim()||"线上",
+    reward:$("fReward").value.trim()
+  };
+}
+function clearForm(){$("fTitle").value="";$("fDesc").value="";$("fReward").value="";$("fPlace").value="";}
+$("saveDraft").onclick=()=>{
+  const d=readForm();
+  if(!d.title && !d.desc){toast("先写点内容再存草稿吧");return;}
+  drafts.push(d);persist();toast("已存入草稿箱 📥");
+  clearForm();
+};
+$("doPublish").onclick=()=>{
+  const d=readForm();
+  if(!d.title){toast("请填写标题");return;}
+  if(!d.desc){toast("请填写描述");return;}
+  posts.unshift({id:Date.now(),...d,author:state.user.nick,av:"🙂",time:"刚刚",likes:0,taken:false});
+  persist();
+  clearForm();
+  toast("发布成功！即将返回广场 🚀");
+  setTimeout(()=>{location.href=withLayout("首页.html");},900);
+};
+
+renderPublish();
+
+/* 从「个人中心-草稿箱-继续编辑」跳转而来：载入草稿 */
+(function(){
+  const ei=localStorage.getItem("sk_edit_draft");
+  if(ei===null)return;
+  localStorage.removeItem("sk_edit_draft");
+  const d=drafts[Number(ei)];
+  if(!d)return;
+  state.publishType=d.type;state.publishCat=d.cat;
+  [...$("typeToggle").children].forEach(x=>{x.classList.toggle("on",x.dataset.type===d.type);x.classList.toggle("t-teach",x.dataset.type==="teach"&&x.dataset.type===d.type);});
+  renderPublish();
+  $("fTitle").value=d.title||"";$("fDesc").value=d.desc||"";
+  $("fMode").value=d.mode||"线上";$("fPlace").value=d.place||"";$("fReward").value=d.reward||"";
+  toast("已载入草稿，可继续编辑");
+})();
+</script>
+</body>
+</html>

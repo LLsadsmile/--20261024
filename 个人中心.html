@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>技能互换 · 个人中心</title>
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body data-page="profile">
+<div class="app">
+  <!-- 顶部栏 -->
+  <div class="topbar">
+    <div class="logo"><span class="mark">⇄</span><span>技能互换</span></div>
+    <div class="pc-nav" id="pcNav"></div>
+    <div id="topRight"></div>
+  </div>
+
+  <!-- 内容区：个人中心 -->
+  <div class="content">
+    <section class="view active">
+      <div id="profileGate"></div>
+      <div id="profileBody" style="display:none;">
+        <div class="profile-grid">
+          <div class="pg-left">
+            <div class="profile-head">
+              <div class="big-av" id="pAv">🙂</div>
+              <div class="nick" id="pNick">用户名</div>
+              <div class="sub" id="pLevel">Lv.1 互换新手</div>
+              <div class="stats">
+                <div class="stat"><b id="sPub">0</b>已发布</div>
+                <div class="stat"><b id="sTake">0</b>已接单</div>
+                <div class="stat"><b id="sGood">100%</b>好评</div>
+              </div>
+            </div>
+          </div>
+          <div class="pg-right">
+            <div class="tabs" id="profileTabs">
+              <button data-tab="msg" class="on">💬 私信</button>
+              <button data-tab="fav">⭐ 收藏夹</button>
+              <button data-tab="pub">📝 已发布</button>
+              <button data-tab="draft">📥 草稿箱</button>
+              <button data-tab="set">⚙️ 设置</button>
+            </div>
+
+            <div id="tab-msg" class="ptab">
+              <div class="msg-layout" id="msgLayout">
+                <div class="msg-list-col" id="msgListCol"></div>
+                <div class="chat-col" id="chatCol"></div>
+              </div>
+            </div>
+            <div id="tab-fav" class="ptab" style="display:none;"></div>
+            <div id="tab-pub" class="ptab" style="display:none;"></div>
+            <div id="tab-draft" class="ptab" style="display:none;"></div>
+            <div id="tab-set" class="ptab" style="display:none;"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- 底部导航（移动版） -->
+  <div class="tabbar" id="tabbar"></div>
+</div>
+
+<script src="assets/app.js"></script>
+<script>
+/* ========== 个人中心逻辑 ========== */
+/* 处理从其他页面发来的「打开某个会话」请求 */
+(function(){
+  const t=localStorage.getItem("sk_chat_target");
+  if(t){state.chatWith=Number(t);localStorage.removeItem("sk_chat_target");state.profileTab="msg";}
+})();
+
+function renderProfile(){
+  const gate=$("profileGate"), body=$("profileBody");
+  if(!state.user){
+    gate.style.display="block";body.style.display="none";
+    gate.innerHTML=`<div class="guest-hint">🔒 游客模式：登录后查看私信、收藏夹、已发布、草稿箱与设置</div>
+      <div class="form-card" style="text-align:center;padding:30px;">
+        <div style="font-size:46px;margin-bottom:10px;">👤</div>
+        <div style="font-weight:800;font-size:18px;margin-bottom:6px;">我的个人中心</div>
+        <div style="color:var(--text-2);margin-bottom:18px;">管理你的帖子、私信与账号</div>
+        <button class="btn btn-primary btn-block" id="proLogin">登录 / 注册</button>
+      </div>`;
+    $("proLogin").onclick=()=>openLogin();
+    openLogin();
+    return;
+  }
+  gate.style.display="none";body.style.display="block";
+  $("pNick").textContent=state.user.nick;
+  $("pLevel").textContent=state.user.level;
+  const myPosts=posts.filter(p=>p.author===state.user.nick);
+  $("sPub").textContent=myPosts.length;
+  $("sTake").textContent=myPosts.filter(p=>p.taken).length;
+
+  [...$("profileTabs").children].forEach(b=>b.classList.toggle("on",b.dataset.tab===state.profileTab));
+  renderProfileTab();
+}
+
+function renderProfileTab(){
+  const t=state.profileTab;
+  ["msg","fav","pub","draft","set"].forEach(x=>$("tab-"+x).style.display = x===t?"block":"none");
+
+  if(t==="msg")renderMsgTab();
+
+  if(t==="fav"){
+    const list=favs.map(id=>posts.find(p=>p.id===id)).filter(Boolean).reverse();
+    if(!list.length){$("tab-fav").innerHTML=`<div class="empty"><div class="ico">⭐</div>收藏夹是空的，去广场发现感兴趣的帖子吧</div>`;return;}
+    $("tab-fav").innerHTML=list.map(p=>`
+      <div class="list-card">
+        <div class="lc-head" data-open="${p.id}" style="cursor:pointer;"><span class="badge ${p.type}" style="font-size:12px;padding:3px 9px;">${p.type==="learn"?"我想学":"我能教"}</span><span class="lc-title">${esc(p.title)}</span></div>
+        <div class="lc-desc" data-open="${p.id}" style="cursor:pointer;">${esc(p.desc).slice(0,40)}…</div>
+        <div class="lc-foot">
+          <span class="pill">#${esc(p.cat)}</span><span class="pill">❤️ ${p.likes}</span><span class="pill">${esc(p.author)}</span>
+          <button class="mini-btn danger" data-unfav="${p.id}" style="margin-left:auto;">取消收藏</button>
+        </div>
+      </div>`).join("");
+  }
+
+  if(t==="pub"){
+    const mine=posts.filter(p=>p.author===state.user.nick);
+    if(!mine.length){$("tab-pub").innerHTML=`<div class="empty"><div class="ico">📝</div>还没有发布内容，去「发布」页创建第一帖</div>`;return;}
+    $("tab-pub").innerHTML=mine.map(p=>`
+      <div class="list-card" data-open="${p.id}" style="cursor:pointer;">
+        <div class="lc-head"><span class="badge ${p.type}" style="font-size:12px;padding:3px 9px;">${p.type==="learn"?"我想学":"我能教"}</span><span class="lc-title">${esc(p.title)}</span></div>
+        <div class="lc-desc">${esc(p.desc).slice(0,40)}…</div>
+        <div class="lc-foot"><span class="pill">#${esc(p.cat)}</span><span class="pill">❤️ ${p.likes}</span>${p.taken?'<span class="pill" style="background:#e6f9f4;color:#00B8A9;">已接单</span>':''}</div>
+      </div>`).join("");
+  }
+
+  if(t==="draft"){
+    if(!drafts.length){$("tab-draft").innerHTML=`<div class="empty"><div class="ico">📥</div>草稿箱是空的</div>`;return;}
+    $("tab-draft").innerHTML=drafts.map((d,i)=>`
+      <div class="list-card">
+        <div class="lc-head"><span class="badge ${d.type}" style="font-size:12px;padding:3px 9px;">${d.type==="learn"?"我想学":"我能教"}</span><span class="lc-title">${esc(d.title)||"（无标题）"}</span></div>
+        <div class="lc-desc">${esc(d.desc).slice(0,40)||"（无描述）"}…</div>
+        <div class="lc-foot" style="margin-top:8px;">
+          <button class="mini-btn" data-edit="${i}">✏️ 继续编辑</button>
+          <button class="mini-btn danger" data-del="${i}">🗑 删除</button>
+        </div>
+      </div>`).join("");
+  }
+
+  if(t==="set"){
+    $("tab-set").innerHTML=`
+      <div class="settings-row"><span class="s-label">🎨 主题</span><span class="s-val">潮流紫粉（默认）</span></div>
+      <div class="settings-row"><span class="s-label">🔔 消息通知</span><span class="s-val">已开启</span></div>
+      <div class="settings-row"><span class="s-label">📖 关于技能互换</span><span class="s-val">v1.3 原型（多页面版）</span></div>
+      <div class="settings-row"><span class="s-label">📝 用户协议</span><span class="s-val">点击查看</span></div>
+      <div class="settings-row"><span class="s-label">🖥️ 模式切换</span><button class="mini-btn primary" id="layoutToggle">${isPc()?"📱 切换为移动版":"💻 切换为 PC 版"}</button></div>
+      <button class="btn btn-ghost btn-block" id="logout2" style="margin-top:8px;">退出登录</button>`;
+    $("layoutToggle").onclick=toggleLayout;
+    $("logout2").onclick=()=>{state.user=null;persist();location.reload();};
+  }
+}
+
+$("profileTabs").addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;
+  state.profileTab=b.dataset.tab;
+  if(b.dataset.tab!=="msg"){state.chatWith=null;state.quoting=null;}
+  renderProfile();
+});
+
+/* 草稿操作：继续编辑 → 跳转发布页；删除 → 就地移除 */
+document.addEventListener("click",e=>{
+  const edit=e.target.closest("[data-edit]");
+  if(edit){localStorage.setItem("sk_edit_draft",edit.dataset.edit);location.href=withLayout("发布.html");return;}
+  const del=e.target.closest("[data-del]");
+  if(del){drafts.splice(Number(del.dataset.del),1);persist();renderProfileTab();toast("草稿已删除");return;}
+});
+
+/* 布局切换后刷新本页（按钮文案 / 私信双栏 / 聊天占位） */
+document.addEventListener("layoutchange",()=>{if(state.user)renderProfile();});
+
+renderProfile();
+</script>
+</body>
+</html>

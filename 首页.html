@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>技能互换 · 首页广场</title>
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body data-page="home">
+<div class="app">
+  <!-- 顶部栏 -->
+  <div class="topbar">
+    <div class="logo"><span class="mark">⇄</span><span>技能互换</span></div>
+    <div class="pc-nav" id="pcNav"></div>
+    <div id="topRight"></div>
+  </div>
+
+  <!-- 内容区：广场 -->
+  <div class="content">
+    <section class="view active">
+      <div class="banner">
+        <span class="deco">✦</span>
+        <h1>技能互换，遇见更好的自己</h1>
+        <p>用你擅长的，换你想要的 🎸📷💻</p>
+        <div class="search">
+          <span>🔍</span>
+          <input id="searchInput" placeholder="搜索技能 / 吉他 / Python / 摄影…" />
+        </div>
+      </div>
+
+      <div class="section-title"><h2>🔥 热点推送</h2><span class="more" id="hotMore">查看更多 ›</span></div>
+      <div class="hot-scroll" id="hotList"></div>
+
+      <div class="section-title"><h2>📌 广场</h2></div>
+      <div class="chips" id="catChips"></div>
+      <div class="feed" id="feedList"></div>
+    </section>
+  </div>
+
+  <!-- 底部导航（移动版） -->
+  <div class="tabbar" id="tabbar"></div>
+</div>
+
+<script src="assets/app.js"></script>
+<script>
+/* ========== 首页（广场）逻辑 ========== */
+function renderSquare(){
+  // 热点横向卡片（前6）
+  const hot=posts.slice().sort((a,b)=>b.likes-a.likes).slice(0,6);
+  $("hotList").innerHTML=hot.map(p=>`
+    <div class="hot-card" data-open="${p.id}">
+      <span class="tag">🔥 热门</span>
+      <div class="t">${esc(p.title)}</div>
+      <div class="m">${p.type==="learn"?"想学":"能教"} · ${esc(p.cat)} · ${esc(p.place)}</div>
+      <div class="av"><span class="circle" style="background:${avColor(p.author)}">${esc(p.av)}</span>${esc(p.author)} · ❤️${p.likes}</div>
+    </div>`).join("");
+
+  // 分类
+  const cats=["全部",...CATS];
+  $("catChips").innerHTML=cats.map(c=>`<div class="chip ${c===state.cat?"active":""}" data-cat="${c}">${c}</div>`).join("");
+
+  // 信息流
+  let list=posts.filter(p=>state.cat==="全部"||p.cat===state.cat);
+  if(state.search){
+    const q=state.search.toLowerCase();
+    list=list.filter(p=>(p.title+p.desc+p.cat+p.author).toLowerCase().includes(q));
+  }
+  if(!list.length){$("feedList").innerHTML=`<div class="empty"><div class="ico">🗂️</div>暂无相关帖子，换个分类或发布第一个吧！</div>`;return;}
+  $("feedList").innerHTML=list.map(p=>`
+    <div class="post" data-open="${p.id}">
+      <div class="head">
+        <div class="avatar" style="background:${avColor(p.author)}">${esc(p.av)}</div>
+        <div class="who"><div class="name">${esc(p.author)}</div><div class="meta">${esc(p.time)} · ${esc(p.place)}</div></div>
+        <span class="badge ${p.type}">${p.type==="learn"?"📚 我想学":"💡 我能教"}</span>
+      </div>
+      <div class="title">${esc(p.title)}</div>
+      <div class="desc">${esc(p.desc)}</div>
+      <div class="foot">
+        <span class="pill">#${esc(p.cat)}</span>
+        <span class="pill">${esc(p.mode)}</span>
+        <span class="pill">🔁 ${esc(p.reward)}</span>
+        <div class="acts">
+          ${p.type==="learn"
+            ? `<button class="act-btn act-teach" data-take="${p.id}">我教TA</button>`
+            : `<button class="act-btn act-learn" data-learn="${p.id}">我想学</button>`}
+          <button class="act-btn act-dm" data-dm="${p.id}">私信</button>
+        </div>
+      </div>
+    </div>`).join("");
+}
+
+$("catChips").addEventListener("click",e=>{
+  const c=e.target.closest(".chip");if(!c)return;
+  state.cat=c.dataset.cat;renderSquare();
+});
+$("searchInput").addEventListener("input",e=>{state.search=e.target.value;renderSquare();});
+$("hotMore").addEventListener("click",()=>{location.href=withLayout("热点榜.html");});
+
+renderSquare();
+</script>
+</body>
+</html>
